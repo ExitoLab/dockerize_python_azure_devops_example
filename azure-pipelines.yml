@@ -4,7 +4,7 @@ trigger:
       - main
 
 variables:
-  azureSubscription: 'b0db9144-b4ed-4024-98bf-e8938e730316' # Add your azureSubscription
+  azureSubscription: 'connectedServiceNameARM' # Add your azureSubscription
   resourceGroup: 'python-app' # Add your resourceGroup
   acrName: 'python-app'
   containerName: 'python-app-container'
