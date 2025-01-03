@@ -6,7 +6,8 @@ trigger:
 variables:
   azureSubscription: 'connectedServiceNameARM' # Add your azureSubscription
   resourceGroup: 'python-app' # Add your resourceGroup
-  acrName: 'python-app'
+  acrName: 'sampleapp'
+  acrServiceConnection: 'sampleapp'
   containerName: 'python-app-container'
   imageName: 'python-app'
   containerRegistry: 'python-app'
@@ -43,7 +44,7 @@ jobs:
       displayName: 'Login to ACR'
       inputs:
         command: 'login'
-        containerRegistry: $(acrName)
+        containerRegistry: $(acrServiceConnection)
 
     # Step 3: Build Docker Image
     - task: Docker@2
