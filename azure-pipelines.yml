@@ -108,5 +108,5 @@ jobs:
             --dns-name-label python-app-demo \
             --registry-login-server $(containerRegistry) \
             --registry-username $acrUsername \
-            --registry-password $acrPassword
+            --registry-password $acrPassword \
             --os-type Linux
