@@ -28,7 +28,10 @@ class App:
             self.greeting.set_message(message)
             return f"Greeting updated to: {message}"
 
-# Instantiate and run the app
+# Create the app instance
+app_instance = App()
+app = app_instance.app
+
+# This makes the app importable by a WSGI server
 if __name__ == '__main__':
-    app_instance = App()
-    app_instance.app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000)
