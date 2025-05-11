@@ -93,6 +93,11 @@ jobs:
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |
+          echo "Logging in to ACR to get credentials..."
+          acrCreds=$(az acr credential show --name $(acrName) --resource-group $(resourceGroup))
+          acrUsername=$(echo $acrCreds | jq -r '.username')
+          acrPassword=$(echo $acrCreds | jq -r '.passwords[0].value')
+
           echo "Deploying to Azure Container Instances..."
           az container create \
             --name $(containerName) \
@@ -100,6 +105,7 @@ jobs:
             --image $(containerRegistry)/$(imageName):$(imageTag) \
             --cpu 1 --memory 1.5 \
             --ports 5000 \
-            --dns-name-label python-app-demo  # Expose the app with a DNS name
-        displayName: 'Deploy to ACI'
-        continueOnError: false  # Ensure the pipeline fails if deployment fails
+            --dns-name-label python-app-demo \
+            --registry-login-server $(containerRegistry) \
+            --registry-username $acrUsername \
+            --registry-password $acrPassword
