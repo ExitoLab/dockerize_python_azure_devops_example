@@ -71,9 +71,9 @@ jobs:
       displayName: 'Build Docker Image'
       inputs:
         command: 'build'
-        containerRegistry: $(acrName)
+        containerRegistry: $(acrServiceConnection)  # Use the ACR service connection
         dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
-        imageName: $(imageName)
+        imageName: '$(acrName).azurecr.io/$(imageName)'  # Fully qualified image name
         tags: '$(imageTag)'  # Use unique tag based on Build ID for versioning
 
     # Step 5: Push Docker Image to ACR
@@ -81,8 +81,8 @@ jobs:
       displayName: 'Push Docker Image to ACR'
       inputs:
         command: 'push'
-        containerRegistry: $(acrName)
-        imageName: $(imageName)
+        containerRegistry: $(acrServiceConnection)  # Use the ACR service connection
+        repository: '$(acrName).azurecr.io/$(imageName)'  # Fully qualified image name
         tags: '$(imageTag)'  # Push image with unique tag
 
     # Step 6: Deploy to Azure Container Instances
