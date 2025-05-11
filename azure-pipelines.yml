@@ -94,6 +94,7 @@ jobs:
         scriptLocation: 'inlineScript'
         inlineScript: |
           echo "Logging in to ACR to get credentials..."
+          az acr update --name $(acrName) --admin-enabled true
           acrCreds=$(az acr credential show --name $(acrName) --resource-group $(resourceGroup))
           acrUsername=$(echo $acrCreds | jq -r '.username')
           acrPassword=$(echo $acrCreds | jq -r '.passwords[0].value')
@@ -103,10 +104,12 @@ jobs:
             --name $(containerName) \
             --resource-group $(resourceGroup) \
             --image $(containerRegistry)/$(imageName):$(imageTag) \
-            --cpu 1 --memory 1.5 \
+            --cpu 1 \
+            --memory 1.5 \
             --ports 5000 \
             --dns-name-label python-app-demo \
             --registry-login-server $(containerRegistry) \
-            --registry-username $acrUsername \
-            --registry-password $acrPassword \
+            --registry-username "$acrUsername" \
+            --registry-password "$acrPassword" \
             --os-type Linux
+
