@@ -4,22 +4,23 @@ trigger:
       - main
 
 variables:
-  azureSubscription: 'connectedServiceNameARM' # Add your azureSubscription
-  resourceGroup: 'python-app' # Add your resourceGroup
-  acrName: 'sampleapp'
-  acrServiceConnection: 'sampleapp'
-  containerName: 'python-app-container'
-  imageName: 'python-app'
-  containerRegistry: 'python-app'
+  azureSubscription: 'connectedServiceNameARM'  # Azure subscription connected to Azure DevOps
+  resourceGroup: 'python-app'  # Azure resource group for ACI and ACR
+  acrName: 'sampleapp'  # Azure Container Registry name
+  acrServiceConnection: 'sampleapp'  # Azure service connection for ACR
+  containerName: 'python-app-container'  # Azure Container Instance name
+  imageName: 'python-app'  # Docker image name
+  containerRegistry: 'sampleapp.azurecr.io'  # ACR registry URI (including the region, e.g., azurecr.io)
+  imageTag: '$(Build.BuildId)'  # Unique tag based on Build ID (e.g., 1234, 1235, etc.)
 
 jobs:
 - job: BuildAndDeploy
-  displayName: 'Check ACR, Build Docker Image, and Deploy to ACI'
+  displayName: 'Build Docker Image, Push to ACR, and Deploy to ACI'
   pool:
-    vmImage: 'ubuntu-latest'
+    vmImage: 'ubuntu-latest'  # Use Ubuntu for the build environment
 
   steps:
-    # Step 1: Check if ACR Exists and Create if Needed
+    # Step 1: Check and Create ACR if Needed
     - task: AzureCLI@2
       displayName: 'Check and Create Azure Container Registry (ACR)'
       inputs:
@@ -27,6 +28,7 @@ jobs:
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |
+          echo "Checking if ACR $(acrName) exists..."
           acr_exists=$(az acr show --name $(acrName) --resource-group $(resourceGroup) --query "name" -o tsv 2>/dev/null || echo "")
           if [ -z "$acr_exists" ]; then
             echo "ACR $(acrName) does not exist. Creating it..."
@@ -38,6 +40,7 @@ jobs:
           else
             echo "ACR $(acrName) already exists. Skipping creation."
           fi
+        continueOnError: true  # Ensure the pipeline doesn't fail if ACR creation fails (due to existing ACR)
 
     # Step 2: Login to ACR
     - task: Docker@2
@@ -54,7 +57,7 @@ jobs:
         containerRegistry: $(acrName)
         dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
         imageName: $(imageName)
-        tags: 'latest'
+        tags: '$(imageTag)'  # Use unique tag based on Build ID for versioning
 
     # Step 4: Push Docker Image to ACR
     - task: Docker@2
@@ -63,7 +66,7 @@ jobs:
         command: 'push'
         containerRegistry: $(acrName)
         imageName: $(imageName)
-        tags: 'latest'
+        tags: '$(imageTag)'  # Push image with unique tag
 
     # Step 5: Deploy to Azure Container Instances
     - task: AzureCLI@2
@@ -73,9 +76,13 @@ jobs:
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |
+          echo "Deploying to Azure Container Instances..."
           az container create \
             --name $(containerName) \
             --resource-group $(resourceGroup) \
-            --image $(containerRegistry)/$(imageName):latest \
+            --image $(containerRegistry)/$(imageName):$(imageTag) \
             --cpu 1 --memory 1.5 \
-            --ports 5000
+            --ports 5000 \
+            --dns-name-label python-app-demo  # Expose the app with a DNS name
+        displayName: 'Deploy to ACI'
+        continueOnError: false  # Ensure the pipeline fails if deployment fails
