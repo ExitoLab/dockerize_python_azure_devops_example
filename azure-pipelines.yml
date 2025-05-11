@@ -20,7 +20,24 @@ jobs:
     vmImage: 'ubuntu-latest'  # Use Ubuntu for the build environment
 
   steps:
-    # Step 1: Check and Create ACR if Needed
+    # Step 1: Check and Create Resource Group if Needed
+    - task: AzureCLI@2
+      displayName: 'Check and Create Resource Group'
+      inputs:
+        azureSubscription: $(azureSubscription)
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          echo "Checking if Resource Group $(resourceGroup) exists..."
+          rg_exists=$(az group show --name $(resourceGroup) --query "name" -o tsv 2>/dev/null || echo "")
+          if [ -z "$rg_exists" ]; then
+            echo "Resource Group $(resourceGroup) does not exist. Creating it..."
+            az group create --name $(resourceGroup) --location eastus
+          else
+            echo "Resource Group $(resourceGroup) already exists. Skipping creation."
+          fi
+
+    # Step 2: Check and Create ACR if Needed
     - task: AzureCLI@2
       displayName: 'Check and Create Azure Container Registry (ACR)'
       inputs:
@@ -42,14 +59,14 @@ jobs:
           fi
         continueOnError: true  # Ensure the pipeline doesn't fail if ACR creation fails (due to existing ACR)
 
-    # Step 2: Login to ACR
+    # Step 3: Login to ACR
     - task: Docker@2
       displayName: 'Login to ACR'
       inputs:
         command: 'login'
         containerRegistry: $(acrServiceConnection)
 
-    # Step 3: Build Docker Image
+    # Step 4: Build Docker Image
     - task: Docker@2
       displayName: 'Build Docker Image'
       inputs:
@@ -59,7 +76,7 @@ jobs:
         imageName: $(imageName)
         tags: '$(imageTag)'  # Use unique tag based on Build ID for versioning
 
-    # Step 4: Push Docker Image to ACR
+    # Step 5: Push Docker Image to ACR
     - task: Docker@2
       displayName: 'Push Docker Image to ACR'
       inputs:
@@ -68,7 +85,7 @@ jobs:
         imageName: $(imageName)
         tags: '$(imageTag)'  # Push image with unique tag
 
-    # Step 5: Deploy to Azure Container Instances
+    # Step 6: Deploy to Azure Container Instances
     - task: AzureCLI@2
       displayName: 'Deploy to Azure Container Instances'
       inputs:

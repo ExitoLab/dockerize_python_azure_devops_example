@@ -1,0 +1,46 @@
+# Ignore Python virtual environment directories
+venv/
+env/
+.venv/
+.virtualenv/
+
+# Ignore Python bytecode files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore distribution / packaging directories
+build/
+dist/
+.eggs/
+*.egg-info/
+*.egg
+
+# Ignore pipenv files
+Pipfile.lock
+Pipfile
+
+# Ignore coverage reports
+.coverage
+.coverage.*
+nosetests.xml
+test-results/
+
+# Ignore IDE/Editor directories and files
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+
+# Ignore MacOS system files
+.DS_Store
+
+# Ignore Windows system files
+Thumbs.db
+
+# Ignore virtual environment related files for Python tools (e.g., poetry)
+*.tox/
+*.nox/
+*.coverage
+*.hypothesis/
