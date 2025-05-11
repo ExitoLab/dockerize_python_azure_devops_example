@@ -109,3 +109,4 @@ jobs:
             --registry-login-server $(containerRegistry) \
             --registry-username $acrUsername \
             --registry-password $acrPassword
+            --os-type Linux
