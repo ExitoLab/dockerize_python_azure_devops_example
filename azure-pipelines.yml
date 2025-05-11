@@ -72,9 +72,10 @@ jobs:
       inputs:
         command: 'build'
         containerRegistry: $(acrServiceConnection)  # Use the ACR service connection
+        repository: 'python-app'  # Just the repository name without registry URL
         dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
-        imageName: '$(acrName).azurecr.io/python-app'  # Specify the image name without the tag
         tags: '$(imageTag)'  # Use unique tag based on Build ID for versioning
+        buildContext: '$(Build.SourcesDirectory)'
 
     # Step 5: Push Docker Image to ACR
     - task: Docker@2
@@ -82,7 +83,7 @@ jobs:
       inputs:
         command: 'push'
         containerRegistry: $(acrServiceConnection)  # Use the ACR service connection
-        repository: '$(acrName).azurecr.io/python-app'  # Specify the repository name without the tag
+        repository: 'python-app'  # Just the repository name without registry URL
         tags: '$(imageTag)'  # Push image with unique tag
 
 
