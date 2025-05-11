@@ -93,12 +93,22 @@ jobs:
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |
-          echo "Logging in to ACR to get credentials..."
+          # Enable admin access if not already enabled
+          echo "Enabling admin access on ACR..."
           az acr update --name $(acrName) --admin-enabled true
-          acrCreds=$(az acr credential show --name $(acrName) --resource-group $(resourceGroup))
-          acrUsername=$(echo $acrCreds | jq -r '.username')
-          acrPassword=$(echo $acrCreds | jq -r '.passwords[0].value')
-
+          
+          # Get ACR credentials more reliably
+          echo "Getting ACR credentials..."
+          acrUsername=$(az acr credential show --name $(acrName) --query username -o tsv)
+          acrPassword=$(az acr credential show --name $(acrName) --query "passwords[0].value" -o tsv)
+          
+          echo "Using registry: $(containerRegistry)"
+          echo "Using image: $(containerRegistry)/$(imageName):$(imageTag)"
+          
+          # Verify the image exists in ACR
+          echo "Verifying image exists in ACR..."
+          az acr repository show --name $(acrName) --image $(imageName):$(imageTag) || echo "WARNING: Image may not exist in registry"
+          
           echo "Deploying to Azure Container Instances..."
           az container create \
             --name $(containerName) \
@@ -112,4 +122,7 @@ jobs:
             --registry-username "$acrUsername" \
             --registry-password "$acrPassword" \
             --os-type Linux
-
+          
+          # Verify deployment status
+          echo "Checking container status..."
+          az container show --name $(containerName) --resource-group $(resourceGroup) --query instanceView.state
