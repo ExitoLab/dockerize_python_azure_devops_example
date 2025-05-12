@@ -12,6 +12,9 @@ variables:
   imageName: 'python-app'  # Docker image name
   containerRegistry: 'sampleapp.azurecr.io'  # ACR registry URI (including the region, e.g., azurecr.io)
   imageTag: '$(Build.BuildId)'  # Unique tag based on Build ID (e.g., 1234, 1235, etc.)
+  # Cache variables
+  DOCKER_BUILDKIT: 1  # Enable BuildKit for better Docker performance
+  CACHE_VERSION: 'v1'  # Increment this when you need to invalidate the cache
 
 jobs:
 - job: BuildAndDeploy
@@ -64,7 +67,17 @@ jobs:
           echo "Ensuring admin access is enabled on ACR..."
           az acr update --name $(acrName) --admin-enabled true
 
-    # Step 3: Build and Push Docker Image using Azure CLI (avoids service connection issues)
+    # Step 3: Restore Docker cache
+    - task: Cache@2
+      displayName: 'Restore Docker cache'
+      inputs:
+        key: 'docker-cache-$(Agent.OS)-$(CACHE_VERSION) | "$(Build.SourcesDirectory)/Dockerfile"'
+        restoreKeys: |
+          docker-cache-$(Agent.OS)-$(CACHE_VERSION)
+          docker-cache-$(Agent.OS)
+        path: '$(Pipeline.Workspace)/.docker-cache'
+      
+    # Step 4: Build and Push Docker Image using Azure CLI with caching
     - task: AzureCLI@2
       displayName: 'Build and Push Docker Image to ACR'
       inputs:
@@ -72,17 +85,31 @@ jobs:
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |
+          # Create cache directory if it doesn't exist
+          mkdir -p $(Pipeline.Workspace)/.docker-cache
+          
           # Login to ACR using Azure CLI
           echo "Logging in to ACR $(acrName)..."
           az acr login --name $(acrName)
           
-          # Build the Docker image
-          echo "Building Docker image..."
-          docker build -t $(containerRegistry)/$(imageName):$(imageTag) -f $(Build.SourcesDirectory)/Dockerfile $(Build.SourcesDirectory)
+          # Pull latest image for cache (if it exists)
+          echo "Trying to pull latest image for cache..."
+          docker pull $(containerRegistry)/$(imageName):latest || true
           
-          # Push the Docker image to ACR
-          echo "Pushing Docker image to ACR..."
+          # Build the Docker image with cache options
+          echo "Building Docker image with cache..."
+          docker build \
+            --cache-from=$(containerRegistry)/$(imageName):latest \
+            --build-arg BUILDKIT_INLINE_CACHE=1 \
+            -t $(containerRegistry)/$(imageName):$(imageTag) \
+            -t $(containerRegistry)/$(imageName):latest \
+            -f $(Build.SourcesDirectory)/Dockerfile \
+            $(Build.SourcesDirectory)
+          
+          # Push the Docker images to ACR (both with build ID tag and latest tag)
+          echo "Pushing Docker images to ACR..."
           docker push $(containerRegistry)/$(imageName):$(imageTag)
+          docker push $(containerRegistry)/$(imageName):latest
           
           # Verify image was pushed successfully
           echo "Verifying image was pushed to ACR..."
