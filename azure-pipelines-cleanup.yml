@@ -1,0 +1,37 @@
+trigger:
+  branches:
+    include:
+      - main
+
+variables:
+  azureSubscription: 'connectedServiceNameARM'  # Azure subscription connected to Azure DevOps
+  resourceGroup: 'python-app'  # Azure resource group for ACI and ACR
+  acrName: 'sampleapp'  # Azure Container Registry name
+  acrServiceConnection: 'sampleapp'  # Azure service connection for ACR
+  containerName: 'python-app-container'  # Azure Container Instance name
+  imageName: 'python-app'  # Docker image name
+  containerRegistry: 'sampleapp.azurecr.io'  # ACR registry URI (including the region, e.g., azurecr.io)
+  imageTag: '$(Build.BuildId)'  # Unique tag based on Build ID (e.g., 1234, 1235, etc.)
+
+jobs:
+- job: BuildAndDeploy
+  displayName: 'Build Docker Image, Push to ACR, and Deploy to ACI'
+  pool:
+    vmImage: 'ubuntu-latest'  # Use Ubuntu for the build environment
+
+  steps:
+    # Step 1: Clean up
+    - task: AzureCLI@2
+      displayName: 'Cleanup: Delete ACI and ACR'
+      inputs:
+        azureSubscription: $(azureSubscription)
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          echo "Cleaning up resources..."
+
+          echo "Deleting container instance $(containerName)..."
+          az container delete --name $(containerName) --resource-group $(resourceGroup) --yes --no-wait
+
+          echo "Deleting ACR $(acrName)..."
+          az acr delete --name $(acrName) --resource-group $(resourceGroup) --yes --no-wait
