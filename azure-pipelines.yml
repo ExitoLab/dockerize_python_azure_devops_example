@@ -77,9 +77,9 @@ jobs:
           docker-cache-$(Agent.OS)
         path: '$(Pipeline.Workspace)/.docker-cache'
       
-    # Step 4: Build and Push Docker Image using Azure CLI with caching
+   # Step 4: Build, Scan, and Push Docker Image using Azure CLI with caching
     - task: AzureCLI@2
-      displayName: 'Build and Push Docker Image to ACR'
+      displayName: 'Build, Scan, and Push Docker Image to ACR'
       inputs:
         azureSubscription: $(azureSubscription)
         scriptType: 'bash'
@@ -87,15 +87,15 @@ jobs:
         inlineScript: |
           # Create cache directory if it doesn't exist
           mkdir -p $(Pipeline.Workspace)/.docker-cache
-          
+
           # Login to ACR using Azure CLI
           echo "Logging in to ACR $(acrName)..."
           az acr login --name $(acrName)
-          
+
           # Pull latest image for cache (if it exists)
           echo "Trying to pull latest image for cache..."
           docker pull $(containerRegistry)/$(imageName):latest || true
-          
+
           # Build the Docker image with cache options
           echo "Building Docker image with cache..."
           docker build \
@@ -105,12 +105,21 @@ jobs:
             -t $(containerRegistry)/$(imageName):latest \
             -f $(Build.SourcesDirectory)/Dockerfile \
             $(Build.SourcesDirectory)
-          
-          # Push the Docker images to ACR (both with build ID tag and latest tag)
+
+          # Install Trivy
+          echo "Installing Trivy scanner..."
+          wget https://github.com/aquasecurity/trivy/releases/download/v0.62.1/trivy_0.62.1_Linux-64bit.deb
+          sudo dpkg -i trivy_0.62.1_Linux-64bit.deb
+
+          # Run Trivy image scan (scan local image before pushing)
+          echo "Running Trivy vulnerability scan (warn only)..."
+          trivy image --exit-code 0 --severity HIGH,CRITICAL --ignore-unfixed $(containerRegistry)/$(imageName):$(imageTag)
+
+          # Push the Docker images to ACR
           echo "Pushing Docker images to ACR..."
           docker push $(containerRegistry)/$(imageName):$(imageTag)
           docker push $(containerRegistry)/$(imageName):latest
-          
+
           # Verify image was pushed successfully
           echo "Verifying image was pushed to ACR..."
           az acr repository show --name $(acrName) --repository $(imageName)
