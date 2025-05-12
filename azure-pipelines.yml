@@ -48,16 +48,18 @@ jobs:
           echo "Checking if ACR $(acrName) exists..."
           acr_exists=$(az acr show --name $(acrName) --resource-group $(resourceGroup) --query "name" -o tsv 2>/dev/null || echo "")
           if [ -z "$acr_exists" ]; then
-            echo "ACR $(acrName) does not exist. Creating it..."
+            echo "Creating ACR $(acrName)..."
             az acr create \
               --name $(acrName) \
               --resource-group $(resourceGroup) \
               --sku Basic \
               --admin-enabled true
+            echo "Waiting for ACR to be ready..."
+            sleep 30  # Give ACR some time to finish provisioning
           else
-            echo "ACR $(acrName) already exists. Skipping creation."
+            echo "ACR $(acrName) already exists."
           fi
-        continueOnError: true  # Ensure the pipeline doesn't fail if ACR creation fails (due to existing ACR)
+
 
     # Step 3: Login to ACR
     - task: Docker@2
