@@ -60,55 +60,35 @@ jobs:
             echo "ACR $(acrName) already exists."
           fi
           
-          # Get ACR credentials and store them as pipeline variables
-          echo "Getting ACR credentials..."
-          ACR_USERNAME=$(az acr credential show --name $(acrName) --resource-group $(resourceGroup) --query "username" -o tsv)
-          ACR_PASSWORD=$(az acr credential show --name $(acrName) --resource-group $(resourceGroup) --query "passwords[0].value" -o tsv)
-          ACR_LOGIN_SERVER=$(az acr show --name $(acrName) --resource-group $(resourceGroup) --query "loginServer" -o tsv)
-          
-          echo "##vso[task.setvariable variable=acrUsername]$ACR_USERNAME"
-          echo "##vso[task.setvariable variable=acrPassword]$ACR_PASSWORD"
-          echo "##vso[task.setvariable variable=acrLoginServer]$ACR_LOGIN_SERVER"
+          # Enable admin access if not already enabled
+          echo "Ensuring admin access is enabled on ACR..."
+          az acr update --name $(acrName) --admin-enabled true
 
-    # Step 3: Login to Docker using ACR admin credentials
-    - task: Docker@2
-      displayName: 'Login to ACR'
-      inputs:
-        command: 'login'
-        containerRegistry: '$(acrLoginServer)'
-        username: '$(acrUsername)'
-        password: '$(acrPassword)'
-
-    # Step 4: Build Docker Image
-    - task: Docker@2
-      displayName: 'Build Docker Image'
-      inputs:
-        command: 'build'
-        repository: '$(acrLoginServer)/python-app'
-        dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
-        tags: '$(imageTag)'
-        buildContext: '$(Build.SourcesDirectory)'
-
-    # Step 5: Push Docker Image to ACR
-    - task: Docker@2
-      displayName: 'Push Docker Image to ACR'
-      inputs:
-        command: 'push'
-        repository: '$(acrLoginServer)/python-app'
-        tags: '$(imageTag)'
-      
-    # Step 6: Verify image was pushed successfully
+    # Step 3: Build and Push Docker Image using Azure CLI (avoids service connection issues)
     - task: AzureCLI@2
-      displayName: 'Verify Image in ACR'
+      displayName: 'Build and Push Docker Image to ACR'
       inputs:
         azureSubscription: $(azureSubscription)
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |
+          # Login to ACR using Azure CLI
+          echo "Logging in to ACR $(acrName)..."
+          az acr login --name $(acrName)
+          
+          # Build the Docker image
+          echo "Building Docker image..."
+          docker build -t $(containerRegistry)/$(imageName):$(imageTag) -f $(Build.SourcesDirectory)/Dockerfile $(Build.SourcesDirectory)
+          
+          # Push the Docker image to ACR
+          echo "Pushing Docker image to ACR..."
+          docker push $(containerRegistry)/$(imageName):$(imageTag)
+          
+          # Verify image was pushed successfully
           echo "Verifying image was pushed to ACR..."
-          az acr repository show --name $(acrName) --repository python-app
+          az acr repository show --name $(acrName) --repository $(imageName)
 
-    # Step 7: Deploy to Azure Container Instances
+    # Step 4: Deploy to Azure Container Instances
     - task: AzureCLI@2
       displayName: 'Deploy to Azure Container Instances'
       inputs:
@@ -116,11 +96,7 @@ jobs:
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |
-          # Enable admin access if not already enabled
-          echo "Enabling admin access on ACR..."
-          az acr update --name $(acrName) --admin-enabled true
-          
-          # Get ACR credentials more reliably
+          # Get ACR credentials
           echo "Getting ACR credentials..."
           acrUsername=$(az acr credential show --name $(acrName) --query username -o tsv)
           acrPassword=$(az acr credential show --name $(acrName) --query "passwords[0].value" -o tsv)
