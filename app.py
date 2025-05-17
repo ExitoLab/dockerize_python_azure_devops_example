@@ -1,7 +1,7 @@
 from flask import Flask
 
 class Greeting:
-    def __init__(self, message="Hello, World!"):
+    def __init__(self, message="Hello, Cloud Summit!"):
         self._message = message
 
     # Getter method
