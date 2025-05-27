@@ -30,3 +30,6 @@ jobs:
 
           echo "Deleting ACR $(acrName)..."
           az acr delete --name $(acrName) --resource-group $(resourceGroup) --yes
+
+          echo "Deleting resource group..."
+          az acr delete --resource-group $(resourceGroup) --yes
